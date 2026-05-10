@@ -4,6 +4,7 @@ from keras.models import Sequential
 from keras.layers import LSTM, Dropout, Dense
 from matplotlib import pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
+from tensorflow.python.ops.losses.losses_impl import mean_squared_error
 
 
 def load_data():
@@ -49,7 +50,6 @@ def rnn_model(X_train, y_train, X_test, y_test):
     X_test_3D = X_test_scaled.reshape((X_test_scaled.shape[0], 1, X_test_scaled.shape[1]))
 
     model = Sequential()
-    # If you have a second LSTM layer, the first must have return_sequences=True
     model.add(LSTM(100, return_sequences=True, input_shape=(X_train_3D.shape[1], X_train_3D.shape[2])))
     model.add(Dropout(0.2))
     model.add(LSTM(50))
@@ -66,16 +66,9 @@ def rnn_model(X_train, y_train, X_test, y_test):
 def plot_results(y_test, y_ar_pred, y_rnn_pred, y_costless):
     plt.figure(figsize=(12, 6))
 
-    # Actual Data
     plt.plot(y_test, 'r-o', label='Actual Quotes', linewidth=2)
-
-    # AR Model (Task 2)
     plt.plot(y_ar_pred, 'g--', label='Linear AR Model', alpha=0.8)
-
-    # RNN/LSTM Model (Task 3)
     plt.plot(y_rnn_pred, 'k-', label='RNN (LSTM) Model', linewidth=2)
-
-    # Costless Reference (y_t+1 = y_t)
     plt.plot(y_costless, 'b:', label='Costless Model (Reference)')
 
     plt.title("Comparison of Stock Price Prediction Models")
@@ -85,19 +78,33 @@ def plot_results(y_test, y_ar_pred, y_rnn_pred, y_costless):
     plt.grid(True, alpha=0.3)
     plt.show()
 
+def model_comparator(y_test, y_ar_pred, y_rnn_pred, y_costless):
+    # Root Mean Squared Error calculation considering each model...
+    rmse_ar = np.sqrt(mean_squared_error(y_test, y_ar_pred))
+    rmse_rnn = np.sqrt(mean_squared_error(y_test, y_rnn_pred))
+    rmse_base = np.sqrt(mean_squared_error(y_test, y_costless))
+
+    print("=== model comparison ===")
+    print(f"Autoregression model: {rmse_ar:.4f}")
+    print(f"RNN model: {rmse_rnn:.4f}")
+    print(f"Base model: {rmse_base:.4f}")
+
+    models = {"AR": rmse_ar, "RNN": rmse_rnn, "Baseline": rmse_base}
+    winner = min(models, key=models.get)
+    print(f"\nBest Performing Model: {winner}")
+
 
 def main():
     data, X, y = load_data()
     X_train, X_test, y_train, y_test = split_data(data, X, y)
 
-    # AR Model
     v, y_pred_ar, y_costless = ar_model(X_train, y_train, X_test, y_test)
 
-    # RNN Model
     y_rnn_pred = rnn_model(X_train, y_train, X_test, y_test)
 
-    # Note: Added y_pred_ar to the plot call to match your plot_results definition
     plot_results(y_test, y_pred_ar, y_rnn_pred, y_costless)
+
+    model_comparator(y_test, y_rnn_pred, y_costless)
 
 if __name__ == "__main__":
     main()
